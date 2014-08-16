@@ -17,6 +17,8 @@ import mathutils
 import bpy
 import bpy_extras.io_utils
 
+from mathutils import *
+
 IQM_POSITION     = 0
 IQM_TEXCOORD     = 1
 IQM_NORMAL       = 2
@@ -48,6 +50,17 @@ IQM_VERTEXARRAY = struct.Struct('<5I')
 IQM_BOUNDS      = struct.Struct('<8f')
 
 MAXVCACHE = 32
+
+LeftHandTransform1 = Matrix(((1,0,0,0),(0,0,1,0),(0,1,0,0),(0,0,0,1)))
+LeftHandTransform2 = Matrix(((1,0,0,0),(0,1,0,0),(0,0,-1,0),(0,0,0,1)))
+
+def setTransformMatrix(matrix, tolefthanded):
+    res = None
+    if tolefthanded:
+        res = LeftHandTransform2 * (matrix * LeftHandTransform1)
+    else:
+        res = matrix
+    return res
 
 class Vertex:
     def __init__(self, index, coord, normal, uv, weights, color):
@@ -649,7 +662,7 @@ def findArmature(context):
     return armature
 
 
-def derigifyBones(context, armature, scale):
+def derigifyBones(context, armature, scale, tolefthanded):
     data = armature.data
 
     defnames = []
@@ -702,7 +715,7 @@ def derigifyBones(context, armature, scale):
             defchildren[defparent[name]].append(name)
 
     bones = {}
-    worldmatrix = armature.matrix_world
+    worldmatrix = setTransformMatrix(armature.matrix_world, tolefthanded)
     worklist = [ bone for bone in defnames if bone not in defparent ]
     for index, bname in enumerate(worklist):
         bone = defbones[bname]
@@ -715,10 +728,10 @@ def derigifyBones(context, armature, scale):
     return bones
 
 
-def collectBones(context, armature, scale):
+def collectBones(context, armature, scale, tolefthanded):
     data = armature.data
     bones = {}
-    worldmatrix = armature.matrix_world
+    worldmatrix = setTransformMatrix(armature.matrix_world, tolefthanded)
     worklist = [ bone for bone in data.bones.values() if not bone.parent ]
     for index, bone in enumerate(worklist):
         bonematrix = worldmatrix * bone.matrix_local
@@ -732,14 +745,14 @@ def collectBones(context, armature, scale):
     return bones
 
 
-def collectAnim(context, armature, scale, bones, action, startframe = None, endframe = None):
+def collectAnim(context, armature, scale, bones, action, startframe = None, endframe = None, tolefthanded = False):
     if not startframe or not endframe:
         startframe, endframe = action.frame_range
         startframe = int(startframe)
         endframe = int(endframe)
     print('Exporting action "%s" frames %d-%d' % (action.name, startframe, endframe))
     scene = context.scene
-    worldmatrix = armature.matrix_world
+    worldmatrix = setTransformMatrix(armature.matrix_world, tolefthanded)
     armature.animation_data.action = action
     outdata = []
     for time in range(startframe, endframe+1):
@@ -768,7 +781,7 @@ def collectAnim(context, armature, scale, bones, action, startframe = None, endf
     return outdata
 
 
-def collectAnims(context, armature, scale, bones, animspecs):
+def collectAnims(context, armature, scale, bones, animspecs, tolefthanded):
     if not armature.animation_data:
         print('Armature has no animation data')
         return []
@@ -800,14 +813,14 @@ def collectAnims(context, armature, scale, bones, animspecs):
             flags = int(animspec[4])
         except:
             flags = 0
-        framedata = collectAnim(context, armature, scale, bones, actions[animname], startframe, endframe)
+        framedata = collectAnim(context, armature, scale, bones, actions[animname], startframe, endframe, tolefthanded)
         anims.append(Animation(animname, framedata, fps, flags))
     armature.animation_data.action = oldaction
     scene.frame_set(oldframe)
     return anims
 
  
-def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False, filetype = 'IQM'):
+def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False, filetype = 'IQM', tolefthanded = False):
     vertwarn = []
     objs = context.selected_objects #context.scene.objects
     meshes = []
@@ -816,7 +829,7 @@ def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False,
             data = obj.to_mesh(context.scene, False, 'PREVIEW')
             if not data.tessfaces:
                 continue
-            coordmatrix = obj.matrix_world
+            coordmatrix = setTransformMatrix(obj.matrix_world, tolefthanded)
             normalmatrix = coordmatrix.inverted().transposed()
             if scale != 1.0:
                 coordmatrix = mathutils.Matrix.Scale(scale, 4) * coordmatrix 
@@ -1013,7 +1026,7 @@ def exportIQE(file, meshes, bones, anims):
     file.write('\n')
 
 
-def exportIQM(context, filename, usemesh = True, useskel = True, usebbox = True, usecol = False, scale = 1.0, animspecs = None, matfun = (lambda prefix, image: image), derigify = False, boneorder = None):
+def exportIQM(context, filename, usemesh = True, useskel = True, usebbox = True, usecol = False, scale = 1.0, animspecs = None, matfun = (lambda prefix, image: image), derigify = False, boneorder = None, tolefthanded = False):
     armature = findArmature(context)
     if useskel and not armature:
         print('No armature selected')
@@ -1029,9 +1042,9 @@ def exportIQM(context, filename, usemesh = True, useskel = True, usebbox = True,
 
     if useskel:
         if derigify:
-            bones = derigifyBones(context, armature, scale)
+            bones = derigifyBones(context, armature, scale, tolefthanded)
         else:
-            bones = collectBones(context, armature, scale)
+            bones = collectBones(context, armature, scale, tolefthanded)
     else:
         bones = {}
 
@@ -1053,11 +1066,11 @@ def exportIQM(context, filename, usemesh = True, useskel = True, usebbox = True,
 
     bonelist = sorted(bones.values(), key = lambda bone: bone.index)
     if usemesh:
-        meshes = collectMeshes(context, bones, scale, matfun, useskel, usecol, filetype)
+        meshes = collectMeshes(context, bones, scale, matfun, useskel, usecol, filetype, tolefthanded)
     else:
         meshes = []
     if useskel and animspecs:
-        anims = collectAnims(context, armature, scale, bonelist, animspecs)
+        anims = collectAnims(context, armature, scale, bonelist, animspecs, tolefthanded)
     else:
         anims = []
 
@@ -1102,6 +1115,7 @@ class ExportIQM(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     #usetrans = bpy.props.FloatVectorProperty(name="Translate", description="Translate position of exported model", step=50, precision=2, size=3)
     matfmt = bpy.props.EnumProperty(name="Materials", description="Material name format", items=[("m+i-e", "material+image-ext", ""), ("m", "material", ""), ("i", "image", "")], default="m+i-e")
     derigify = bpy.props.BoolProperty(name="De-rigify", description="Export only deformation bones from rigify", default=False)
+    tolefthanded = bpy.props.BoolProperty(name="Left-handed Coords", description="Convert to left-handed Coords", default=False)
     boneorder = bpy.props.StringProperty(name="Bone order", description="Override ordering of bones", subtype="FILE_NAME", default="")
 
     def execute(self, context):
@@ -1111,7 +1125,7 @@ class ExportIQM(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
             matfun = lambda prefix, image: prefix
         else:
             matfun = lambda prefix, image: image
-        exportIQM(context, self.properties.filepath, self.properties.usemesh, self.properties.useskel, self.properties.usebbox, self.properties.usecol, self.properties.usescale, self.properties.animspec, matfun, self.properties.derigify, self.properties.boneorder)
+        exportIQM(context, self.properties.filepath, self.properties.usemesh, self.properties.useskel, self.properties.usebbox, self.properties.usecol, self.properties.usescale, self.properties.animspec, matfun, self.properties.derigify, self.properties.boneorder, self.properties.tolefthanded)
         return {'FINISHED'}
 
     def check(self, context):
