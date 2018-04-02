@@ -1,4 +1,4 @@
-IQM Developer Kit 2014-07-22
+IQM Developer Kit 2015-08-03
 
 *** Format information ***
 
@@ -94,5 +94,5 @@ The "gpu-demo" program shows GPU-accelerated skinning using OpenGL GLSL renderin
 
 *** LICENSE INFO ***
 
-The IQM compiler and upgrader (iqm.cpp, upgrade.cpp, and util.h) and the IQM blender exporter (blender-*/iqm_export.py) are licensed as public domain.
+The IQM compiler and upgrader source code as well as the IQM blender exporters (blender-*/iqm_export.py) are licensed as specified by the LICENSE file included with this distribution.
 
