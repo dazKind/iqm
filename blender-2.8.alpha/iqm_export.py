@@ -982,7 +982,7 @@ def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False,
                 try:
                     mesh = materials[obj.name, matindex, material.name] 
                 except:
-                    mesh = Mesh(obj.name, material, data.vertices)
+                    mesh = Mesh(material.name, material, data.vertices)
                     meshes.append(mesh)
                     materials[obj.name, matindex, material.name] = mesh
 
