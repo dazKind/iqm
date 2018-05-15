@@ -939,7 +939,6 @@ def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False,
             groups = obj.vertex_groups
             #uvfaces = data.uv_textures.active and data.uv_textures.active.data
             uvlayer = data.uv_layers.active and data.uv_layers.active.data
-
             uvfaces = data.tessface_uv_textures.active and data.tessface_uv_textures.active.data
             
             colors = None
@@ -979,7 +978,7 @@ def collectMeshes(context, bones, scale, matfun, useskel = True, usecol = False,
                 uvface = uvfaces and uvfaces[face.index]
                 matindex = face.material_index
                 # TODO: the following is broken in blender2.8!
-                material = Material(data.materials[0])
+                material = Material(data.materials[matindex])
                 try:
                     mesh = materials[obj.name, matindex, material.name] 
                 except:
