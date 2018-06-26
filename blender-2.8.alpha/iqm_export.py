@@ -482,21 +482,19 @@ class Material:
 
         targetDir = os.path.dirname(os.path.relpath(absFile, prefix).replace("\\", "/"))
 
-        tplFile = open(absTemplate, "r")
-        tplMat = Template(tplFile.read())
-        tplFile.close()
-
-        matStr = tplMat.substitute(
-            flags = "&".join(self.flags), \
-            surfaceMap = "", \
-            emissiveMap = "", \
-            normalMap = "", \
-            diffuseMap = Material.textureFile(targetDir, self.diffuseMap), \
-            diffuseColor=self.diffuseColor, \
-            metalness = self.metalness, \
-            roughness = self.roughness
-            )
-        matFile = open(os.path.join(os.path.dirname(absFile), self.name + ".vxm"), "w")
+        matStr = json.dumps({
+            "type": "material",
+            "template": self.template,
+            "flags" : "&".join(self.flags),
+            "surfaceMap" : "",
+            "emissiveMap" : "",
+            "normalMap" : "",
+            "diffuseMap" : self.diffuseMap,
+            "diffuseColor" : self.diffuseColor,
+            "metalness" : self.metalness,
+            "roughness" : self.roughness
+        })
+        matFile = open(os.path.join(os.path.dirname(absFile), self.name + ".vxm.vxa"), "w")
         matFile.write(matStr)
         matFile.close()
 
@@ -1134,6 +1132,18 @@ def exportIQE(file, meshes, bones, anims):
                     file.write('pq %.8f %.8f %.8f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n' % (pos.x, pos.y, pos.z, orient.x, orient.y, orient.z, orient.w, scale.x, scale.y, scale.z))
 
     file.write('\n')
+
+    # write the vxa for the iqe
+    iqeStr = json.dumps({
+        "type": "iqm",
+        "input": os.path.basename(file.name)
+    })
+    absFile = bpy.path.abspath(file.name)
+    vxaFile = open(os.path.join(os.path.dirname(absFile), os.path.splitext(os.path.basename(file.name))[0] + ".iqm.vxa"), "w")
+    vxaFile.write(iqeStr)
+    vxaFile.close()
+
+    print(vxaFile)
 
 
 def exportIQM(context, filename, usemesh = True, useskel = True, usebbox = True, usecol = False, scale = 1.0, animspecs = None, matfun = (lambda prefix, image: image), derigify = False, boneorder = None):
